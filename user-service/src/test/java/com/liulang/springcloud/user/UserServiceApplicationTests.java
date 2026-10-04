@@ -23,7 +23,7 @@ class UserServiceApplicationTests {
     @Test
     void serviceRegistrationConfigurationIsLoaded() {
         assertThat(environment.getProperty("spring.application.name")).isEqualTo("user-service");
-        assertThat(environment.getProperty("server.port")).isEqualTo("8081");
+        assertThat(environment.getProperty("server.port")).isEqualTo("18081");
         assertThat(environment.getProperty("spring.cloud.nacos.discovery.server-addr"))
                 .isEqualTo("127.0.0.1:8848");
     }
