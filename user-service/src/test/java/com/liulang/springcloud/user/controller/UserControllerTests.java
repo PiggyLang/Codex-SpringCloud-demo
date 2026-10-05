@@ -9,7 +9,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(UserController.class)
+@WebMvcTest(
+        controllers = UserController.class,
+        properties = {
+                "spring.cloud.nacos.config.enabled=false",
+                "spring.cloud.nacos.config.import-check.enabled=false",
+                "spring.config.import="
+        }
+)
 class UserControllerTests {
 
     @Autowired
