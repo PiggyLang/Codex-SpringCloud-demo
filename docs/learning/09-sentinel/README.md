@@ -1,4 +1,8 @@
-# Sentinel 用户服务熔断学习实验
+# 阶段九：接入 Sentinel 熔断
+
+历史提交：`4519a4675996ae7b4f0a9a958ac8ea480e9ce301`。
+
+本文记录该提交对应的历史快照和当时的验证方式。当前项目可能已在后续提交中继续演进；请以当前源码及配置为准启动完整项目。
 
 订单服务只为 `order -> UserClient.getUser(100L)` 设置 Sentinel 熔断资源 `user-info`。正常响应仍包含用户信息；Feign 异常、用户服务空响应和 Sentinel 熔断拦截仍返回 HTTP 200，状态为 `UNAVAILABLE`，并省略 `user` 字段。其他编程错误继续向外暴露。Sentinel Web filter 已关闭，因此不会把整个 `/orders` 路由也纳入资源统计。
 
