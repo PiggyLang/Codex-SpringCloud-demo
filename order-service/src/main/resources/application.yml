@@ -5,6 +5,9 @@ spring:
   application:
     name: order-service
   cloud:
+    sentinel:
+      filter:
+        enabled: false
     openfeign:
       client:
         config:
@@ -14,3 +17,10 @@ spring:
     nacos:
       discovery:
         server-addr: 127.0.0.1:8848
+demo:
+  sentinel:
+    circuit-breaker:
+      error-ratio: 0.5
+      minimum-requests: 5
+      stat-interval-ms: 30000
+      open-seconds: 10

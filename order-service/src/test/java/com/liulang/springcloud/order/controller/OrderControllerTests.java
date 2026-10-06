@@ -1,6 +1,9 @@
 package com.liulang.springcloud.order.controller;
 
 import com.liulang.springcloud.api.UserDTO;
+import com.alibaba.csp.sentinel.slots.block.RuleConstant;
+import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRule;
+import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRuleManager;
 import com.liulang.springcloud.order.client.UserClient;
 import feign.FeignException;
 import feign.Request;
@@ -8,22 +11,29 @@ import feign.RetryableException;
 import feign.Response;
 import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
+import com.liulang.springcloud.order.service.UserLookupService;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(OrderController.class)
+@Import(UserLookupService.class)
 class OrderControllerTests {
 
     @Autowired
@@ -31,6 +41,11 @@ class OrderControllerTests {
 
     @MockitoBean
     private UserClient userClient;
+
+    @AfterEach
+    void clearSentinelRules() {
+        DegradeRuleManager.loadRules(List.of());
+    }
 
     @Test
     void returnsOrderWithUserFromRemoteService() throws Exception {
@@ -99,5 +114,26 @@ class OrderControllerTests {
         ServletException exception = assertThrows(ServletException.class,
                 () -> mockMvc.perform(get("/orders/{id}", 1L)));
         assertSame(programmingError, exception.getCause());
+    }
+
+    @Test
+    void stopsCallingUserServiceAfterFiveFailuresOpenTheCircuit() throws Exception {
+        DegradeRuleManager.loadRules(List.of(new DegradeRule("user-info")
+                .setGrade(RuleConstant.DEGRADE_GRADE_EXCEPTION_RATIO)
+                .setCount(0.5)
+                .setMinRequestAmount(5)
+                .setStatIntervalMs(30_000)
+                .setTimeWindow(1)));
+        Request request = Request.create(Request.HttpMethod.GET, "http://user-service/users/100", Map.of(), null,
+                StandardCharsets.UTF_8, null);
+        Response response = Response.builder().status(503).reason("Service Unavailable").request(request).build();
+        when(userClient.getUser(100L)).thenThrow(FeignException.errorStatus("UserClient#getUser", response));
+
+        for (int i = 0; i < 6; i++) {
+            mockMvc.perform(get("/orders/{id}", 1L)).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.userStatus").value("UNAVAILABLE"));
+        }
+
+        verify(userClient, times(5)).getUser(100L);
     }
 }
